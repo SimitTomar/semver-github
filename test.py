@@ -64,11 +64,13 @@ def get_bump_version(_latest):
 
 
 def tag_repo(tag):
-    repository_url = os.environ["CI_REPOSITORY_URL"]
-    username = os.environ["NPA_USERNAME"]
-    password = os.environ["NPA_PASSWORD"]
 
-    push_url = re.sub(r'([a-z]+://)[^@]*(@.*)', rf'\g<1>{username}:{password}\g<2>', repository_url)
+    print('tag', tag)
+
+    url = os.environ["CI_REPOSITORY_URL"]
+    print('url', url)
+
+    push_url = re.sub(r'.+@([^/]+)/', r'git@\1:', url)
 
     git("remote", "set-url", "--push", "origin", push_url)
     git("tag", tag)
