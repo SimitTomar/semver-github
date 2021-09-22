@@ -29,7 +29,7 @@ def extract_merge_request_label(_commit_sha):
     # TODO: replace headers
     merge_requests_response = requests.get(url, headers = {"PRIVATE-TOKEN": "-kU_ac9Atq6txW8h6Xh4"})
     print('merge_requests_response', merge_requests_response.json())
-    latest_merge_request = merge_requests_response.json()[0]  
+    latest_merge_request = merge_requests_response.json()[0]
 
     if constants.VERSION_MAJOR in latest_merge_request['labels']:
         return 'major'
@@ -66,7 +66,6 @@ def get_bump_version(_latest):
 def tag_repo(tag):
 
     print('tag', tag)
-
     url = os.environ["CI_REPOSITORY_URL"]
     print('url', url)
 
@@ -79,19 +78,24 @@ def tag_repo(tag):
 
 def main():
     try:
-        latest = git("describe", "--tags").decode().strip()
+        # Get the most recent tag reachable from a commit
+        recent_tag = git("describe", "--tags").decode().strip()
     except subprocess.CalledProcessError:
         # Default to version 1.0.0 if no tags are available
-        version = "1.0.0"
+        bumped_version = "1.0.0"
     else:
-        if '-' in latest:
-            print('latest', latest)
+        # Check for Semver format
+        # If yes then go ahead else return 1 with a valid message: Latest tag not following semver format
+        # Skip already tagged commits
+        if '-' not in recent_tag:
+            print('recent_tag', recent_tag)
             return 0
     
-        version = get_bump_version(latest)
+        bumped_version = get_bump_version(recent_tag)
+        print('bumped_version', bumped_version)
 
-    # tag_repo(version)
-    print('version', version)
+    tag_repo(bumped_version)
+    print('bumped_version', bumped_version)
 
 
     return 0
