@@ -13,6 +13,11 @@ import constants
 def git(*args):
     return subprocess.check_output(["git"] + list(args))
 
+def remove_prefix(text, prefix):
+    if text.startswith(prefix):
+        return text[len(prefix):]
+    return text
+
 
 def get_bump_version(_latest):
 
@@ -70,10 +75,12 @@ def tag_repo(tag, commit_sha):
 
 
 def main():
-    try:
+    try:        
         # Get the most recent tag reachable from a commit
         recent_tag = git("describe", "--tags").decode().strip()
         print(f'most recent tag reachable from a commit is: {recent_tag}')
+        recent_tag_without_prefix = remove_prefix(recent_tag, constants.PREFIX)
+
     except subprocess.CalledProcessError:
         # Default to version 1.0.0 if no tags are available
         print('No tags found, hence defaulting to version 1.0.0')
@@ -83,18 +90,16 @@ def main():
         # Check for Semver format
         # If yes then go ahead else return 1 with a valid message: Latest tag not following semver format
         # Skip already tagged or non conformant semantic versioning scheme commits
-        if '-' not in recent_tag:
-            print(f'Skipping version bumping as the most recent commit: {recent_tag} is either already tagged or not conforming to the semantic versioning schem of MAJOR.MINOR.PATCH')
+        if '-' not in recent_tag_without_prefix:
+            print(f'Skipping version bumping as the most recent commit: {recent_tag_without_prefix} is either already tagged or not conforming to the semantic versioning scheme of MAJOR.MINOR.PATCH')
             return 0
     
-        bumped_version, commit_sha = get_bump_version(recent_tag)
+        bumped_version, commit_sha = get_bump_version(recent_tag_without_prefix)
 
-    tag_repo(bumped_version, commit_sha)
-    with open('buid.env', 'w') as f:
-        f.write(bumped_version)
+    bumped_version_with_prefix = f'{constants.PREFIX}{bumped_version}'
+    tag_repo(bumped_version_with_prefix, commit_sha)
 
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())
