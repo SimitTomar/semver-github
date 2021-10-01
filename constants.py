@@ -1,2 +1,5 @@
-VERSION_MAJOR = 'version:major'
-VERSION_MINOR = 'version:minor'
+VERSION_MAJOR = 'version::major'
+VERSION_MINOR = 'version::minor'
+CI_PRIVATE_TOKEN = 'CI_PRIVATE_TOKEN'
+BASE_ENDPOINT= 'https://gitlab.com/api/v4'
+PREFIX = 'v'
