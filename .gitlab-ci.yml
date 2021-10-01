@@ -1,100 +1,53 @@
-#!/usr/bin/env python3
-import os
-import re
-import sys
-import semver
-import subprocess
-import requests
-import re
+image: python:latest
 
-import constants
+# Change pip's cache directory to be inside the project directory since we can
+# only cache local items.
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  CI_PRIVATE_TOKEN: "$CI_PRIVATE_TOKEN"
+  CI_PROJECT_ID: "$CI_PROJECT_ID"
 
+# Pip's cache doesn't store the python packages
+# https://pip.pypa.io/en/stable/reference/pip_install/#caching
+#
+# If you want to also cache the installed packages, you have to install
+# them in a virtualenv and cache it as well.
+cache:
+  paths:
+    - .cache/pip
+    - venv/
 
-def git(*args):
-    return subprocess.check_output(["git"] + list(args))
+stages:
+  - setup
+  - versioning
 
-
-def get_bump_version(_latest):
-
-    commit_sha = get_latest_commit_sha()
-    print(f'sha of the most recent commit is: {commit_sha}')
-
-    merge_request_label = extract_merge_request_label(commit_sha)
-    print(f'Merge request label for the most recent merge request is: {merge_request_label}')
-
-    bump_version = ''
-    if merge_request_label == 'major':
-        bump_version = semver.bump_major(_latest)
-
-    elif merge_request_label == 'minor':
-        bump_version = semver.bump_minor(_latest)
-
-    else:
-        bump_version = semver.bump_patch(_latest)
-    
-    print(f'Bump Version is: {bump_version}')
-    return bump_version, commit_sha
+pip_install:
+  stage:
+    setup
+  script:
+    - echo ${CI_COMMIT_BRANCH}
+    - echo ${CI_COMMIT_REF_PROTECTED}
+    - echo ${CI_PIPELINE_SOURCE}
+    - echo ${CI_MERGE_REQUEST_LABELS}
+    - echo ${CI_COMMIT_SHORT_SHA}
 
 
-def get_latest_commit_sha():
-    print('Getting the sha of the most recent commit...')
-    commit_sha = git("rev-parse", "--short", "HEAD").decode().strip()
-    return commit_sha
+set_semver_tag:
+  stage:
+    versioning
+  script:
+    - python -V  # Print out python version for debugging
+    - pip install virtualenv
+    - virtualenv venv
+    - source venv/bin/activate
+    - pip install -r requirements.txt
+    - python update_semver.py
+    - echo ${CI_COMMIT_TAG}
+  rules:
+    - if: $CI_COMMIT_REF_PROTECTED == "true" && $CI_COMMIT_BRANCH == "main"
+  needs: ["pip_install"]
+
+  
 
 
-def extract_merge_request_label(commit_sha):
 
-    project_id = os.environ["CI_PROJECT_ID"]
-    endpoint = f"{constants.BASE_ENDPOINT}/projects/{project_id}/repository/commits/{commit_sha}/merge_requests"
-    print(f"Getting the list of all the merge requests corresponding to the given commit, endpoint is: {endpoint}")
-    merge_requests_response = requests.get(endpoint, headers = {"PRIVATE-TOKEN": os.environ.get(constants.CI_PRIVATE_TOKEN)})
-    print('Getting the most recent merge request for the given commit...')
-    merge_request_labels = merge_requests_response.json()[0]['labels']
-    print(f'Labels available for the most recent merge request: {merge_request_labels}')
-
-    if constants.VERSION_MAJOR in merge_request_labels:
-        return 'major'
-    elif constants.VERSION_MINOR in merge_request_labels:
-        return 'minor'
-    else:
-        return 'patch'
-
-
-def tag_repo(tag, commit_sha):
-
-    project_id = os.environ["CI_PROJECT_ID"]
-    endpoint = f'{constants.BASE_ENDPOINT}/projects/{project_id}/repository/tags?tag_name={tag}&ref={commit_sha}'
-    print(f'Pushing the commit to the remote repository, endpoint is: {endpoint}')
-    tags_response = requests.post(endpoint, headers = {"PRIVATE-TOKEN": os.environ.get(constants.CI_PRIVATE_TOKEN)})
-    print('Tags response is:', tags_response.json())
-
-
-def main():
-    try:
-        # Get the most recent tag reachable from a commit
-        recent_tag = git("describe", "--tags").decode().strip()
-        print(f'most recent tag reachable from a commit is: {recent_tag}')
-    except subprocess.CalledProcessError:
-        # Default to version 1.0.0 if no tags are available
-        print('No tags found, hence defaulting to version 1.0.0')
-        bumped_version = "1.0.0"
-    else:
-        # TODO:
-        # Check for Semver format
-        # If yes then go ahead else return 1 with a valid message: Latest tag not following semver format
-        # Skip already tagged or non conformant semantic versioning scheme commits
-        if '-' not in recent_tag:
-            print(f'Skipping version bumping as the most recent commit: {recent_tag} is either already tagged or not conforming to the semantic versioning schem of MAJOR.MINOR.PATCH')
-            return 0
-    
-        bumped_version, commit_sha = get_bump_version(recent_tag)
-
-    tag_repo(bumped_version, commit_sha)
-    with open('buid.env', 'w') as f:
-        f.write(bumped_version)
-
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
