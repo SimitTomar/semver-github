@@ -35,10 +35,11 @@ def get_latest_commit_sha():
     return commit_sha
     
 
-def get_bump_version(_recent_tag_without_prefix, _commit_sha):
+def get_bump_version_info(_recent_tag_without_prefix, _commit_sha):
 
-    merge_request_labels = extract_merge_request_labels(_commit_sha)
+    merge_request_labels, merge_request_messages = extract_merge_request_info(_commit_sha)
     bump_version = ''
+
     if constants.VERSION_MAJOR in merge_request_labels:
         bump_version = semver.bump_major(_recent_tag_without_prefix)
     elif constants.VERSION_MINOR in merge_request_labels:
@@ -47,26 +48,28 @@ def get_bump_version(_recent_tag_without_prefix, _commit_sha):
         bump_version = semver.bump_patch(_recent_tag_without_prefix)
     
     print(f'Bump Version is: {bump_version}')
-    return bump_version
+    return bump_version, merge_request_messages
 
 
-def extract_merge_request_labels(commit_sha):
+def extract_merge_request_info(commit_sha):
 
     project_id = os.environ["CI_PROJECT_ID"]
     endpoint = f"{constants.BASE_ENDPOINT}/projects/{project_id}/repository/commits/{commit_sha}/merge_requests"
     print(f"Getting the list of all the merge requests corresponding to the given commit, endpoint is: {endpoint}")
     merge_requests_response = requests.get(endpoint, headers = {"PRIVATE-TOKEN": os.environ.get(constants.CI_PRIVATE_TOKEN)})
-    print('Getting the most recent merge request for the given commit...')
     merge_request_labels = merge_requests_response.json()[0]['labels']
     print(f'Label(s) available for the most recent merge request: {merge_request_labels}')
-    return merge_request_labels
+    merge_request_messages = merge_requests_response.json()[0]['title']
+    print(f'Title of the most recent merge request: {merge_request_messages}')
+
+    return merge_request_labels, merge_request_messages
 
 
 
-def tag_repo(tag, commit_sha):
+def tag_commit(tag, commit_sha, message):
 
     project_id = os.environ["CI_PROJECT_ID"]
-    endpoint = f'{constants.BASE_ENDPOINT}/projects/{project_id}/repository/tags?tag_name={tag}&ref={commit_sha}'
+    endpoint = f'{constants.BASE_ENDPOINT}/projects/{project_id}/repository/tags?tag_name={tag}&ref={commit_sha}&message={message}'
     print(f'Pushing the commit to the remote repository, endpoint is: {endpoint}')
     tags_response = requests.post(endpoint, headers = {"PRIVATE-TOKEN": os.environ.get(constants.CI_PRIVATE_TOKEN)})
     print('Tags response is:', tags_response.json())
@@ -83,12 +86,11 @@ def main():
         # Default to version 0.0.0 if no tags are available
         print('No tags found, hence defaulting to version 0.0.0')
         recent_tag_without_prefix = "0.0.0"
-    
+   
     # this block will be executed if there is no exception in the try block
     else:
-        # TODO: Check if a commit is already tagged
         # Skip if a commit is already tagged
-        if '-' not in recent_tag_without_prefix :
+        if '-' not in recent_tag_without_prefix:
             print(f'Skipping version bumping as the most recent commit: {recent_tag_without_prefix} is already tagged')
             return 0
         elif not is_tag_semver(recent_tag_without_prefix):
@@ -97,9 +99,9 @@ def main():
 
     commit_sha = get_latest_commit_sha()
     print(f'sha of the most recent commit is: {commit_sha}')
-    bumped_version = get_bump_version(recent_tag_without_prefix, commit_sha)
+    bumped_version, merge_request_messages = get_bump_version_info(recent_tag_without_prefix, commit_sha)
     bumped_version_with_prefix = f'{constants.PREFIX}{bumped_version}'
-    tag_repo(bumped_version_with_prefix, commit_sha)
+    tag_commit(bumped_version_with_prefix, commit_sha, merge_request_messages)
 
     return 0
 
