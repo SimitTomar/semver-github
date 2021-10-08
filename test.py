@@ -200,24 +200,26 @@ def main():
     """
 
     The functions pefroms the following steps:
-     - Finds the most recent tag reachable from a commit, 
-     - Checks if the tag follows semver rules
+     - Gets the most recent tag reachable from a commit, 
+     - Checks if bumping of tag is required
      - Bumps the tag version as per the commit's MR label
      - Pushes an annotated tag to the remote repo
 
     """
 
     try:
-        # Get the most recent tag without the specified prefix, reachable from a commit
+        # get the most recent tag without the specified prefix, reachable from a commit
         recent_tag_without_prefix = get_recent_tag_without_prefix(constants.PREFIX)
-        print(recent_tag_without_prefix.__doc__)
+        # check if bumping of tag is required
         is_bumping_required = check_if_tag_bumping_required(recent_tag_without_prefix)
         # perform version bumping if all tag validation checks pass
         if is_bumping_required:
             commit_sha = get_latest_commit_sha()
             print(f'sha of the most recent commit is: {commit_sha}')
+            # get the annotated tag's name i.e., the version to be bumped and its corresponding message
             tag_name, tag_name = get_bump_version_info(recent_tag_without_prefix, commit_sha)
             tag_name_with_prefix = f'{constants.PREFIX}{tag_name}'
+            # commit the tag to the remote repo
             tag_commit_response = tag_commit(tag_name_with_prefix, commit_sha, tag_name)
             print(f'Tag commit response is: {tag_commit_response}')
             return 0
