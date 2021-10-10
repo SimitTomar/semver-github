@@ -210,17 +210,22 @@ def main():
     try:
         # get the most recent tag without the specified prefix, reachable from a commit
         recent_tag_without_prefix = get_recent_tag_without_prefix(constants.PREFIX)
-        # check if bumping of tag is required
-        is_bumping_required = check_if_tag_bumping_required(recent_tag_without_prefix)
+
+        # check if bumping of tag is required by validating if the last tag is reachable from a commit and is following semver scheme or not
+        if recent_tag_without_prefix == '0.0.0':
+            is_bumping_required = True
+        else:
+            is_bumping_required = check_if_tag_bumping_required(recent_tag_without_prefix)
+            
         # perform version bumping if all tag validation checks pass
         if is_bumping_required:
             commit_sha = get_latest_commit_sha()
             print(f'sha of the most recent commit is: {commit_sha}')
             # get the annotated tag's name i.e., the version to be bumped and its corresponding message
-            tag_name, tag_name = get_bump_version_info(recent_tag_without_prefix, commit_sha)
+            tag_name, tag_message = get_bump_version_info(recent_tag_without_prefix, commit_sha)
             tag_name_with_prefix = f'{constants.PREFIX}{tag_name}'
             # commit the tag to the remote repo
-            tag_commit_response = tag_commit(tag_name_with_prefix, commit_sha, tag_name)
+            tag_commit_response = tag_commit(tag_name_with_prefix, commit_sha, tag_message)
             print(f'Tag commit response is: {tag_commit_response}')
             return 0
     except RuntimeError as re:
