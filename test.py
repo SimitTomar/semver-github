@@ -76,7 +76,7 @@ def remove_prefix(prefix, text):
         return text[len(prefix):]
     return text
 
-def check_if_tag_bumping_required(recent_tag_without_prefix):
+def is_tag_bumping_required(recent_tag_without_prefix):
 
     """
     The function checks if tag bumping is required or not
@@ -86,8 +86,9 @@ def check_if_tag_bumping_required(recent_tag_without_prefix):
     :rtype: bool
     
     """
+
     # skip version bumping if a commit is already tagged
-    if '-' not in recent_tag_without_prefix:
+    if is_commit_already_tagged(recent_tag_without_prefix):
         print(f'Skipping version bumping as the most recent commit: {recent_tag_without_prefix} is already tagged')
         return False
     # skip version bumping if a tag does not follow semver scheme
@@ -96,6 +97,12 @@ def check_if_tag_bumping_required(recent_tag_without_prefix):
         return False
     else:
         return True
+
+
+
+def is_commit_already_tagged(recent_tag_without_prefix):
+    res = re.search(".*?-g[0-9a-z]{7}$", recent_tag_without_prefix)
+    return res
 
 def is_tag_semver(tag):
 
@@ -215,7 +222,7 @@ def main():
         if recent_tag_without_prefix == '0.0.0':
             is_bumping_required = True
         else:
-            is_bumping_required = check_if_tag_bumping_required(recent_tag_without_prefix)
+            is_bumping_required = is_tag_bumping_required(recent_tag_without_prefix)
             
         # perform version bumping if all tag validation checks pass
         if is_bumping_required:
