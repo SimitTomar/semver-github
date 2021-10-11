@@ -82,14 +82,14 @@ def is_tag_bumping_required(recent_tag_without_prefix):
     The function checks if tag bumping is required or not
 
     :param prefix: The recent tag without the specified prefix
-    :return: Returns False if the tag doesn't contain a '-' or doesn't follow semver scheme, otherwise returns True
+    :return: Returns False if the tag already points to a commit or doesn't follow semver scheme, otherwise returns True
     :rtype: bool
     
     """
 
-    # skip version bumping if a commit is already tagged
-    if is_commit_already_tagged(recent_tag_without_prefix):
-        print(f'Skipping version bumping as the most recent commit: {recent_tag_without_prefix} is already tagged')
+    # skip version bumping if a tag is already pointing to the commit
+    if not is_tag_pointing_to_latest_commit(recent_tag_without_prefix):
+        print(f'Skipping version bumping as the most recent tag: {recent_tag_without_prefix} is already pointing to the latest commit')
         return False
     # skip version bumping if a tag does not follow semver scheme
     elif not is_tag_semver(recent_tag_without_prefix):
@@ -100,7 +100,16 @@ def is_tag_bumping_required(recent_tag_without_prefix):
 
 
 
-def is_commit_already_tagged(recent_tag_without_prefix):
+def is_tag_pointing_to_latest_commit(recent_tag_without_prefix):
+
+    """
+    The function checks if the tag is already pointing to the latest commit or not
+
+    :param recent_tag_without_prefix: The recent tag without the specified prefix
+    :return: Compares the tag against the regex and returns a match object if the tag ends with an abbreviated commit starting with '-g' (like 1.2.3) or None otherwise
+    :rtype: object or None
+    """
+
     res = re.search(".*?-g[0-9a-z]{7}$", recent_tag_without_prefix)
     return res
 
