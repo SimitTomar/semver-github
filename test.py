@@ -34,7 +34,7 @@ def get_commit_tag():
         # Get the most recent tag with the specified prefix, reachable from a commit
         glob = f"{auto_semver_tag_constants.PREFIX}[0-9]*"
         commit_tag = git("describe", "--tags", "--match", glob).decode().strip()
-        print(fn'most recent tag reachable from a commit is: {commit_tag}')
+        print(f'most recent tag reachable from a commit is: {commit_tag}')
         return commit_tag
 
     except subprocess.CalledProcessError:
@@ -176,7 +176,6 @@ def get_bump_version_info(commit_tag_without_sha, commits_since_last_tag):
 
     for line in list_commits_since_last_tag:
         commit_sha = line
-        print("commit_sha", commit_sha)
         merge_request_labels, merge_request_title = extract_merge_request_info(commit_sha)
         tag_message = merge_request_title
         
@@ -186,8 +185,8 @@ def get_bump_version_info(commit_tag_without_sha, commits_since_last_tag):
             bump_tag = semver.bump_minor(bump_tag)
         else:
             bump_tag = semver.bump_patch(bump_tag)
+        print(f'Bump Tag: {auto_semver_tag_constants.PREFIX}{bump_tag}')
             
-    print(f'Bump version info: {commit_sha},{auto_semver_tag_constants.PREFIX}{bump_tag}, {tag_message}')
     return commit_sha, f"{auto_semver_tag_constants.PREFIX}{bump_tag}", tag_message
 
 
