@@ -139,9 +139,9 @@ def get_sha_related_to_commit_tag():
 
     """
 
-    The function retrieves the sha releated to the most recent commit tag
+    The function retrieves the abbreviated commit SHA releated to the most recent commit tag
 
-    :return: Returns the sha releated to the most recent commit tag
+    :return: Returns the abbreviated commit SHA releated to the most recent commit tag
     :rtype: str
     
     """
@@ -176,7 +176,7 @@ def get_bump_version_info(sha_related_to_commit_tag, commits_since_last_tag):
     The function iterates through all the commits available after the most recent commit tag and works out the tag version to be bumped and its corresponding message
 
 
-    :param sha_related_to_commit_tag: SHA releated to the most recent commit tag
+    :param sha_related_to_commit_tag: abbreviated commit SHA releated to the most recent commit tag
     :param commits_since_last_tag: All the commits since the last commit tag
     :return: Return the commit SHA related to the most recent commit tag
     :rtype: str
@@ -259,7 +259,7 @@ def main():
     The functions pefroms the following steps:
      - Gets the most recent tag reachable from a commit
      - Checks if bumping of tag is required
-     - Gets the commi SHA related to the most recent tag reachable from a commit
+     - Gets the abbreviated commit SHA related to the most recent tag reachable from a commit
      - Gets all the commits since the last tag
      - Iterates through all the commits and works out the tag version to be bumped and its corresponding message
      - Pushes an annotated tag to the remote repo with the retrieved bump version and tag message
@@ -279,7 +279,7 @@ def main():
             
         # perform version bumping if all tag validation checks pass
         if is_bumping_required:
-            # get the commit SHA related to the most recent tag reachable from a commit
+            # get the abbreviated commit SHA related to the most recent tag reachable from a commit
             sha_related_to_commit_tag = get_sha_related_to_commit_tag()
             # get all the commits since last tag
             commits_since_last_tag = get_commits_since_last_tag(sha_related_to_commit_tag)
