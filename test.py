@@ -9,15 +9,14 @@ import re
 
 import auto_semver_tag_constants
 
-
 def get_commit_tag():
 
     """
 
     The function returns the most recent tag starting with the specified prefix & reachable from a commit
+
     If no tag is found matching this condition, then a default tag 0.0.0 is returned
     The git command used here is 'git describe --tags --match "glob pattern"'
-
 
     If the tag points to the commit, then only the tag is shown.
     Example: 1.2.3
@@ -61,7 +60,7 @@ def is_tag_bumping_required(commit_tag):
     """
     The function checks if tag bumping is required or not
 
-    :param prefix: The recent tag without the specified prefix
+    :param commit_tag: The most recent tag reachable from a commit
     :return: Returns False if the tag already points to a commit or doesn't follow semver scheme, otherwise returns True
     :rtype: bool
     
@@ -136,29 +135,51 @@ def is_tag_semver(commit_tag):
     res = re.search("^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$", commit_tag)
     return res
 
-def get_commit_tag_without_sha():
-    # TODO: Add Description
+def get_sha_related_to_commit_tag():
+
+    """
+
+    The function retrieves the sha releated to the most recent commit tag
+
+    :return: Returns the sha releated to the most recent commit tag
+    :rtype: str
+    
+    """
     try:
         glob = f"{auto_semver_tag_constants.PREFIX}[0-9]*"
-        commit_tag_without_sha = git("describe", "--tags", "--match", glob, "--abbrev=0").decode().strip()
-        return commit_tag_without_sha
+        sha_related_to_commit_tag = git("describe", "--tags", "--match", glob, "--abbrev=0").decode().strip()
+        return sha_related_to_commit_tag
     except subprocess.CalledProcessError:
-        raise Exception('Exception occurred while retrieving recent tag reachable from commit (without commit SHA)')
+        raise Exception('Exception occurred while retrieving sha of the most recent commit tag')
 
 def get_commits_since_last_tag(commit_tag):
-    # TODO: Add Description
-    commits_since_last_tag = git("log", "--first-parent", "--pretty=%h", f"{commit_tag}..HEAD").decode().strip()   
+
+    """
+
+    The function fetches all the commits since the last commit tag
+
+    :param commit_tag: The most recent tag reachable from a commit
+    :return: Returns all the commits since the last commit tag
+    :rtype: str
+    
+    """
+
+    commits_since_last_tag = git("log", "--first-parent", "--pretty=%h", f"{commit_tag}..HEAD").decode().strip()
+    print(f"commits_since_last_tag: {commits_since_last_tag}")
     return commits_since_last_tag
 
-def get_bump_version_info(commit_tag_without_sha, commits_since_last_tag):
+def get_bump_version_info(sha_related_to_commit_tag, commits_since_last_tag):
 
     # TODO: Modify Comments
     """
     
-    The function gets the information required for bumping the tag
+    The function iterates through all the commits available after the most recent commit tag and works out the tag version to be bumped and its corresponding message
 
-    :param commit_tag_without_sha: The recent tag without the specified prefix
-    :param commit_sha: commit sha
+
+    :param sha_related_to_commit_tag: SHA releated to the most recent commit tag
+    :param commits_since_last_tag: All the commits since the last commit tag
+    :return: Return the commit SHA related to the most recent commit tag
+    :rtype: str
     :return: Returns the tag name based on semver bumping
     :rtype: str
     :return: Returns the message that needs to be committed for the tag
@@ -166,7 +187,7 @@ def get_bump_version_info(commit_tag_without_sha, commits_since_last_tag):
     
     """
 
-    commit_tag_without_prefix = remove_prefix(auto_semver_tag_constants.PREFIX, commit_tag_without_sha)
+    commit_tag_without_prefix = remove_prefix(auto_semver_tag_constants.PREFIX, sha_related_to_commit_tag)
 
     list_commits_since_last_tag = commits_since_last_tag.splitlines()
     list_commits_since_last_tag.reverse()
@@ -189,14 +210,12 @@ def get_bump_version_info(commit_tag_without_sha, commits_since_last_tag):
             
     return commit_sha, f"{auto_semver_tag_constants.PREFIX}{bump_tag}", tag_message
 
-
-
 def extract_merge_request_info(commit_sha):
 
     """
     The function fetches the merge request information corresponding to a commit
 
-    :param commit_sha: commit sha
+    :param commit_sha: commit SHA related to the most recent commit tag
     :return merge_request_labels: Returns the labels assigned to a Merge Request
     :rtype: list
     :return: Title of the Merge Request
@@ -235,36 +254,37 @@ def tag_commit(bump_tag, commit_sha, tag_message):
 
 def main():
 
-    # TODO: Modify Comments
-
     """
 
     The functions pefroms the following steps:
-     - Gets the most recent tag reachable from a commit, 
+     - Gets the most recent tag reachable from a commit
      - Checks if bumping of tag is required
-     - Bumps the tag version as per the commit's MR label
-     - Pushes an annotated tag to the remote repo
+     - Gets the commi SHA related to the most recent tag reachable from a commit
+     - Gets all the commits since the last tag
+     - Iterates through all the commits and works out the tag version to be bumped and its corresponding message
+     - Pushes an annotated tag to the remote repo with the retrieved bump version and tag message
 
     """
 
     try:
 
-        # get the moseft recent tag without the specified prefix, reachable from a commit
+        # get the most recent tag reachable from a commit
         commit_tag = get_commit_tag()
-        # check if bumping of tag is required by validating if the last tag is reachable from a commit and is following semver scheme or not
+        # assign 0.0.0 version to no commit_tag if no tag is found
         if commit_tag == '0.0.0':
             is_bumping_required = True
         else:
+            # check if bumping of tag is required by validating if the last tag is reachable from a commit and is following semver scheme or not
             is_bumping_required = is_tag_bumping_required(commit_tag)
             
         # perform version bumping if all tag validation checks pass
         if is_bumping_required:
-            
-            commit_tag_without_sha = get_commit_tag_without_sha()
-            commits_since_last_tag = get_commits_since_last_tag(commit_tag_without_sha)
-            print(f"commits_since_last_tag: {commits_since_last_tag}")
-            # get the annotated tag's name i.e., the version to be bumped and its corresponding message
-            commit_sha, bump_tag, tag_message = get_bump_version_info(commit_tag_without_sha, commits_since_last_tag)
+            # get the commit SHA related to the most recent tag reachable from a commit
+            sha_related_to_commit_tag = get_sha_related_to_commit_tag()
+            # get all the commits since last tag
+            commits_since_last_tag = get_commits_since_last_tag(sha_related_to_commit_tag)
+            # iterate through all the commits and work out the tag version to be bumped and its corresponding message
+            commit_sha, bump_tag, tag_message = get_bump_version_info(sha_related_to_commit_tag, commits_since_last_tag)
             # commit the tag to the remote repo
             tag_commit_response = tag_commit(bump_tag, commit_sha, tag_message)
             print(f'Tag commit response is: {tag_commit_response}')
@@ -273,6 +293,4 @@ def main():
         print('Oops!! An exception occurred while semver tagging!')
         print(re)
 
-
 if __name__ == "__main__":
-    sys.exit(main())
