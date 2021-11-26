@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import os
-import re
 import sys
 import semver
 import subprocess
@@ -139,9 +138,9 @@ def get_commit_tag_without_sha(commit_tag):
 
     """
 
-    The function retrieves the abbreviated commit SHA releated to the most recent commit tag
+    The function retrieves the most recent tag reachable from a commit and matching the glob pattern, without the abbreviated commit SHA
 
-    :return: Returns the most recent commit tag reachable from a commit without its associated abbreviated commit SHA
+    :return: Returns the commit tag matching the glob pattern, without the abbreviated commit SHA
     :rtype: str
     
     """
@@ -177,18 +176,18 @@ def get_bump_tag_info(commit_tag_without_sha, commits_since_last_tag):
 
     :param commit_tag_without_sha: Most recent commit tag reachable from a commit without its associated abbreviated commit SHA
     :param commits_since_last_tag: All the commits since the last commit tag
-    :return: Return the commit SHA related to the most recent commit tag
+    :return: Returns the commit SHA of the most recent commit
     :rtype: str
-    :return: Returns the tag name based on semver bumping
+    :return: Returns the tag version based on semver bumping
     :rtype: str
-    :return: Returns the message that needs to be committed for the tag
+    :return: Returns the tag message that needs to be committed for the tag
     :rtype: str
     
     """
 
     if not commits_since_last_tag:
         commit_sha = git("rev-parse", "--short", "HEAD").decode().strip()
-        bump_tag, tag_message = get_bump_tag_version_and_message(commit_sha, commit_tag_without_sha)
+        bump_tag_version, bump_tag_message = get_bump_tag_version_and_message(commit_sha, commit_tag_without_sha)
 
     else:
         list_commits_since_last_tag = []
@@ -198,24 +197,37 @@ def get_bump_tag_info(commit_tag_without_sha, commits_since_last_tag):
 
         for line in list_commits_since_last_tag:
             commit_sha = line
-            bump_tag, tag_message = get_bump_tag_version_and_message(commit_sha, commit_tag_without_prefix)
+            bump_tag_version, bump_tag_message = get_bump_tag_version_and_message(commit_sha, commit_tag_without_prefix)
 
     print(f"commit_sha: {commit_sha}")
-    print(f"bump tag: {auto_semver_tag_constants.PREFIX}{bump_tag}")
-    print (f"tag message: {tag_message}")
-    return commit_sha, f"{auto_semver_tag_constants.PREFIX}{bump_tag}", tag_message
+    print(f"bump_tag_version: {auto_semver_tag_constants.PREFIX}{bump_tag_version}")
+    print (f"bump_tag_message: {bump_tag_message}")
+    return commit_sha, f"{auto_semver_tag_constants.PREFIX}{bump_tag_version}", bump_tag_message
 
-def get_bump_tag_version_and_message(commit_sha, bump_tag):
+def get_bump_tag_version_and_message(commit_sha, bump_tag_version):
+
+    """
+    
+    The function retrieves the bump tag version and message based on the merge request label(s) and title 
+
+    :param commit_sha: commit SHA of the most recent commit
+    :param bump_tag_version: initial tag version based on which bumped semver tag is retrieved
+    :return: Returns the semver version of the tag based on the initial tag version
+    :rtype: str
+    :return: Returns the tag message which is the merge request title
+    
+    """
+
     merge_request_labels, merge_request_title = extract_merge_request_info(commit_sha)
-    tag_message = merge_request_title
+    bump_tag_message = merge_request_title
     
     if auto_semver_tag_constants.VERSION_MAJOR in merge_request_labels:
-        bump_tag = semver.bump_major(bump_tag)
+        bump_tag_version = semver.bump_major(bump_tag_version)
     elif auto_semver_tag_constants.VERSION_MINOR in merge_request_labels:
-        bump_tag = semver.bump_minor(bump_tag)
+        bump_tag_version = semver.bump_minor(bump_tag_version)
     else:
-        bump_tag = semver.bump_patch(bump_tag)
-    return bump_tag, tag_message
+        bump_tag_version = semver.bump_patch(bump_tag_version)
+    return bump_tag_version, bump_tag_message
 
 
 def extract_merge_request_info(commit_sha):
@@ -223,8 +235,8 @@ def extract_merge_request_info(commit_sha):
     """
     The function fetches the merge request information corresponding to a commit
 
-    :param commit_sha: commit SHA related to the most recent commit tag
-    :return merge_request_labels: Returns the labels assigned to a Merge Request
+    :param commit_sha: commit SHA of the most recent commit
+    :return merge_request_labels: Returns the label(s) assigned to a Merge Request
     :rtype: list
     :return: Title of the Merge Request
     :rtype: str
@@ -242,20 +254,21 @@ def extract_merge_request_info(commit_sha):
 
     return merge_request_labels, merge_request_title
 
-def tag_commit(bump_tag, commit_sha, tag_message):
+def tag_commit(bump_tag_version, commit_sha, bump_tag_message):
 
     """
     The function associates a tag to a commit through its sha and pushes it to the remote repo
 
-    :param bump_tag: Name of the annoatated tag (with the specified prefix) that needs to be pushed
-    :param commit_sha: commit sha
-    :param tag_message: Message for the annotated tag
-    :return 
+    :param bump_tag_version: Name of the annoatated tag (with the specified prefix) that needs to be pushed
+    :param commit_sha: commit sha with which the annotated tag needs to be associated
+    :param bump_tag_message: Message for the annotated tag
+    :return: tag creation api response
+    :rtype: object
     
     """
 
     project_id = os.environ["CI_PROJECT_ID"]
-    endpoint = f'{auto_semver_tag_constants.GITLAB_BASE_ENDPOINT}/projects/{project_id}/repository/tags?tag_name={bump_tag}&ref={commit_sha}&message={tag_message}'
+    endpoint = f'{auto_semver_tag_constants.GITLAB_BASE_ENDPOINT}/projects/{project_id}/repository/tags?tag_name={bump_tag_version}&ref={commit_sha}&message={bump_tag_message}'
     print(f'Pushing the commit to the remote repository, endpoint is: {endpoint}')
     tags_response = requests.post(endpoint, headers = {"PRIVATE-TOKEN": os.environ.get(auto_semver_tag_constants.CI_PRIVATE_TOKEN)})
     return tags_response.json()
@@ -266,8 +279,9 @@ def main():
 
     The functions pefroms the following steps:
      - Gets the most recent tag reachable from a commit
+     - Defaults to version 0.0.0 if no commit tag is found
      - Checks if bumping of tag is required
-     - Gets the abbreviated commit SHA related to the most recent tag reachable from a commit
+     - Gets the abbreviated commit SHA releated to the most recent commit tag
      - Gets all the commits since the last tag
      - Iterates through all the commits and works out the tag version to be bumped and its corresponding message
      - Pushes an annotated tag to the remote repo with the retrieved bump version and tag message
@@ -291,14 +305,14 @@ def main():
                 commit_tag_without_sha = commit_tag
                 commits_since_last_tag = None
             else:
-                # get the abbreviated commit SHA related to the most recent tag reachable from a commit
+                # get the most recent tag reachable from a commit without the commit SHA
                 commit_tag_without_sha = get_commit_tag_without_sha(commit_tag)
                 # get all the commits since last tag
                 commits_since_last_tag = get_commits_since_last_tag(commit_tag_without_sha)
             # iterate through all the commits and work out the tag version to be bumped and its corresponding message
-            commit_sha, bump_tag, tag_message = get_bump_tag_info(commit_tag_without_sha, commits_since_last_tag)
+            commit_sha, bump_tag_version, bump_tag_message = get_bump_tag_info(commit_tag_without_sha, commits_since_last_tag)
             # commit the tag to the remote repo
-            tag_commit_response = tag_commit(bump_tag, commit_sha, tag_message)
+            tag_commit_response = tag_commit(bump_tag_version, commit_sha, bump_tag_message)
             print(f'Tag commit response is: {tag_commit_response}')
             return 0
     except RuntimeError as re:
