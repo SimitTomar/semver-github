@@ -1,0 +1,3 @@
+GITLAB_BASE_ENDPOINT= 'https://gitlab.com/api/v4'
+ENABLED_CHECKBOX_MARKDOWN = '- [x]'
+DISABLED_CHECKBOX_MARKDOWN = '- [ ]'
