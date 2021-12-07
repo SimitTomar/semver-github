@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-import os
-import sys
-import requests
-import json
-import subprocess
 import traceback
 import release_notes_constants
 

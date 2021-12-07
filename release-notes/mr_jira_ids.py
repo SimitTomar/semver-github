@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 import requests
 import re
-import json
-import subprocess
 import traceback
 import release_notes_constants
 

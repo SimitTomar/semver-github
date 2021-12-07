@@ -4,8 +4,6 @@ import traceback
 from mr import Mr
 from mr_template import MrTemplate
 from mr_jira_ids import MrJiraIds
-# import logging
-# from custom_formatter import CustomFormatter
 
 
 class MrInfo(Mr):
@@ -14,27 +12,6 @@ class MrInfo(Mr):
         super().__init__()
 
     def get_mr_info(self):
-
-        # # create logger with 'spam_application'
-        # logger = logging.getLogger("mr_info")
-        # logger.setLevel(logging.DEBUG)
-
-        # # create console handler with a higher log level
-        # ch = logging.StreamHandler()
-        # ch.setLevel(logging.DEBUG)
-        # ch.setFormatter(CustomFormatter())
-        # logger.addHandler(ch)
-
-
-        # # By default the install() function installs a handler on the root logger,
-        # # this means that log messages from your code and log messages from the
-        # # libraries that you use will all show up on the terminal.
-        # coloredlogs.install(level='DEBUG')
-
-        # # If you don't want to see log messages from libraries, you can pass a
-        # # specific logger object to the install() function. In this case only log
-        # # messages originating from that logger will show up on the terminal.
-        # coloredlogs.install(level='DEBUG', logger=logger)
 
         """
 
