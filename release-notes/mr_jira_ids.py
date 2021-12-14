@@ -54,20 +54,46 @@ class MrJiraIds():
         """
 
         try:
-            mr_commits = {}
-            endpoint = f"{release_notes_constants.GITLAB_BASE_ENDPOINT}/projects/{self.gitlab_env_vars['CI_PROJECT_ID']}/merge_requests/{mr_iid}/commits"
+            all_mr_commits = []
+
+            endpoint = f"{release_notes_constants.GITLAB_BASE_ENDPOINT}/projects/{self.gitlab_env_vars['CI_PROJECT_ID']}/merge_requests/{mr_iid}/commits?per_page={release_notes_constants.MR_COMMITS_PER_PAGE}"
             print(f"Getting all the commits of a merge request, endpoint is: {endpoint}")
-            mr_commits = requests.get(endpoint, headers = {"PRIVATE-TOKEN": self.gitlab_env_vars['GITLAB_TOKEN']})
-            mr_commits.raise_for_status()
-            mr_commits = mr_commits.json()
-            return mr_commits
+            mr_commits_current_page = requests.get(endpoint, headers = {"PRIVATE-TOKEN": self.gitlab_env_vars['GITLAB_TOKEN']})
+            mr_commits_current_page.raise_for_status()
+            mr_commits_current_page_headers = mr_commits_current_page.headers
+            mr_commits_current_page = mr_commits_current_page.json()
+            all_mr_commits.extend(mr_commits_current_page)
+            total_pages = int(mr_commits_current_page_headers['X-Total-Pages'])
+
+            for i in range(2, total_pages+1):
+                next_page_mr_commits = self.get_next_page_mr_commits(endpoint, i)
+                all_mr_commits.extend(next_page_mr_commits)            
+
+            return all_mr_commits
         except requests.exceptions.HTTPError:
             print('Oops !! HTTP Error error occurred while getting all the commits of a merge request')
             traceback.print_exc()
         except:
             print('Oops !! An unhandled error occurred while getting all the commits of a merge request')
             traceback.print_exc()
-         
+
+
+    def get_next_page_mr_commits(self, endpoint, page):
+        try:
+            next_page_endpoint = f"{endpoint}&page={page}"
+            next_page_mr_commits  = requests.get(next_page_endpoint, headers = {"PRIVATE-TOKEN": self.gitlab_env_vars['GITLAB_TOKEN']})
+            next_page_mr_commits.raise_for_status()
+            next_page_mr_commits = next_page_mr_commits.json()
+            return next_page_mr_commits
+        except requests.exceptions.HTTPError:
+            print('Oops !! An HTTP Error error occurred while getting the mr commits for the next page')
+            traceback.print_exc()
+        except:
+            print('Oops !! An unhandled error occurred while getting the mr commits for the next page')
+            traceback.print_exc()
+        
+
+
     def extract_jira_id(self, message):
 
         """
